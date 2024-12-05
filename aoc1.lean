@@ -1,3 +1,4 @@
+
 def IO.FS.Stream.print (self: IO.FS.Stream) (xs: List α) [ToString α] :=
   self.putStrLn (
     String.join
