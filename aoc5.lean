@@ -72,6 +72,7 @@ end Sorter
 section mulp
   structure Parser (α : Type) where
     parse: (List Char -> Option (Prod α (List Char)))
+  deriving Inhabited
 
   def single_char_parser (char: Char): Parser Char :=
     { parse := fun
@@ -138,13 +139,106 @@ section mulp
     foldl (· <|> ·) me (map single_char_parser digits)
 
   #eval digitParser.parse "1".toList
+  #eval digitParser.parse "".toList
+  #eval digitParser.parse ",".toList
+  #eval digitParser.parse "11,".toList
 
-  def one_or_many (p: Parser α): Parser (List α) := {
-    parse := fun s =>
-      match p s with 
+  partial def parse_fast
+    (p: Parser α)
+    (s: List Char)
+    (epilogue:
+      (Option (Prod (List α) (List Char)))
+      -> (Option (Prod (List α) (List Char))))
+      : (Option (Prod (List α) (List Char))) :=
+    match p.parse s with
+      | none => epilogue $ none
+      | some (res, s) => parse_fast p s (fun
+        | none => epilogue $ some ([res], s)
+        | some (lst, remainder) =>
+            epilogue $ some (res :: lst, remainder))
+
+  partial def one_or_many (p: Parser α) [Inhabited α]: Parser (List α) :=
+    {
+      parse := (parse_fast p · id)
+    }
+
+  #eval (one_or_many digitParser).parse "55446".toList
+
+  def numberParser := (String.toNat! $ String.mk ·) <$> (one_or_many digitParser)
+  #eval numberParser.parse "012839 uwu".toList
+  #eval numberParser.parse "e 012839 uwu".toList
+  #eval numberParser.parse "56 uwu".toList
+
+  inductive MulPart where
+    | mulBr: String -> MulPart
+    | num1: Nat -> MulPart
+    | comma: String -> MulPart
+    | num2: Nat -> MulPart
+    | closeBr: String -> MulPart
+  deriving Repr
+
+  def mulParser := parseq [
+    (MulPart.mulBr <$> string_parse "mul("),
+    (MulPart.num1 <$> numberParser),
+    (MulPart.comma <$> string_parse ","),
+    (MulPart.num2 <$> numberParser),
+    (MulPart.closeBr <$> string_parse ")")
+  ]
+
+  def choker: (Parser Unit) := {
+    parse := fun
+      | nil => none
+      | cons _ x => some (Unit.unit, x)
   }
 
-  def numberParser := one_or_many digitParser
+  inductive MulParsing where
+    | mul: (List MulPart) -> MulParsing
+    | do_: String -> MulParsing
+    | dont: String -> MulParsing
+    | choke: Unit -> MulParsing
+  deriving Inhabited, Repr
+
+  def longChoker := one_or_many choker
+  #eval longChoker.parse "absefre".toList
+
+  def baseParser :=
+    ((MulParsing.mul <$> mulParser)
+    <|> (MulParsing.do_ <$> (string_parse "do()"))
+    <|> (MulParsing.dont <$> (string_parse "don't()"))
+    <|> (MulParsing.choke <$> choker)
+    )
+  -- #eval baseParser.parse "mul(2,3)".toList
+  #eval baseParser.parse [' ', 'm', 'u', 'l', '(', '2', ',', '3', ')']
+  def fullParser :=
+    (one_or_many baseParser)
+  def testStr := " mul(2,3) mul(2,3)c".toList
+  -- def a := baseParser.parse testStr
+  -- def b := match a with
+  --   | none => none
+  --   | some (x, rem) => some (x, baseParser.parse rem)
+  -- #eval b
+  #eval (parseq [baseParser, baseParser]).parse testStr
+  #eval fullParser.parse testStr
+
+  def computeString (s: String) :=
+    let s := s.toList
+    let parsed := fullParser.parse s
+    match parsed with
+      | none => 0
+      | some (results, _) =>
+        (List.foldl (fun ((num, whether): (Nat × Bool)) res => match res with
+          | MulParsing.mul [
+            MulPart.mulBr _,
+            MulPart.num1 a,
+            MulPart.comma _,
+            MulPart.num2 b,
+            MulPart.closeBr _] =>
+              if whether then (num + a * b, true)
+              else (num, false)
+          | MulParsing.do_ _ => (num, true)
+          | MulParsing.dont _ => (num, false)
+          | _ => (num, whether)
+        ) (0, true) results).fst
 
 end mulp
 
@@ -152,5 +246,5 @@ def main : IO Unit := do
   let stdout ← IO.getStdout
   (IO.FS.withFile "input.txt" IO.FS.Mode.read) (fun stdin => do
     let text <- stdin.readToEnd
-
+    stdout.print [computeString text]
   )
