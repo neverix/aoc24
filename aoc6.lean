@@ -193,6 +193,8 @@ section mulp
 
   inductive MulParsing where
     | mul: (List MulPart) -> MulParsing
+    | do_: String -> MulParsing
+    | dont: String -> MulParsing
     | choke: Unit -> MulParsing
   deriving Inhabited, Repr
 
@@ -200,7 +202,11 @@ section mulp
   #eval longChoker.parse "absefre".toList
 
   def baseParser :=
-    ((MulParsing.mul <$> mulParser) <|> (MulParsing.choke <$> choker))
+    ((MulParsing.mul <$> mulParser)
+    <|> (MulParsing.do_ <$> (string_parse "do()"))
+    <|> (MulParsing.dont <$> (string_parse "don't()"))
+    <|> (MulParsing.choke <$> choker)
+    )
   -- #eval baseParser.parse "mul(2,3)".toList
   #eval baseParser.parse [' ', 'm', 'u', 'l', '(', '2', ',', '3', ')']
   def fullParser :=
@@ -220,17 +226,19 @@ section mulp
     match parsed with
       | none => 0
       | some (results, _) =>
-        let result_nums :=
-          List.map (fun
-            | MulParsing.mul [
-              MulPart.mulBr _,
-              MulPart.num1 a,
-              MulPart.comma _,
-              MulPart.num2 b,
-              MulPart.closeBr _] => a * b
-            | _ => 0
-          ) results
-        List.foldl (· + ·) 0 result_nums
+        (List.foldl (fun ((num, whether): (Nat × Bool)) res => match res with
+          | MulParsing.mul [
+            MulPart.mulBr _,
+            MulPart.num1 a,
+            MulPart.comma _,
+            MulPart.num2 b,
+            MulPart.closeBr _] =>
+              if whether then (num + a * b, true)
+              else (num, false)
+          | MulParsing.do_ _ => (num, true)
+          | MulParsing.dont _ => (num, false)
+          | _ => (num, whether)
+        ) (0, true) results).fst
 
 end mulp
 
