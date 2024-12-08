@@ -2,3 +2,4 @@ log
 *.txt
 .lake/
 SciLean/
+executable*
