@@ -9,6 +9,25 @@ def split_by 't [n] (v: u8) (a: [n]u8): [][2]i64 =
     in zip (init indices |> map (+1)) (tail indices)
         |> map (\(a, b) -> [a, b])
 
+def splitter (v: u8) (a: []u8) (i: [2]i64): [][2]i64 =
+    let split_results = split_by v a[i[0]:i[1]]
+    in map (map (+i[0])) split_results
+
+let zero_ascii: i64 = 48
+
+def parse_number [n] (v: [n]u8): i64 =
+    let digits = v
+        |> map (i64.u8)
+        |> map ((+) (-zero_ascii))
+    let digits = assert ((all (>0) digits) && (all (<10) digits)) digits
+
+    in (reverse digits)
+        |> zip (indices digits)
+        |> map (\(i, d) -> ((10 ** i) * d))
+        |> reduce (+) 0
+
+def number_parser (v: []u8) (index: [2]i64): i64 =
+    parse_number (v[index[0]:index[1]])
 
 let newline_ascii: u8 = 10
 let bar_ascii: u8 = 124
@@ -31,6 +50,6 @@ def main (x: []u8) =
             let elems_typed = bar_elems :> [2][2]i64
             in map (map (+s)) elems_typed
         )
-    
+        |> map (map (number_parser first))
 
-    in first_pairs[1][1]
+    in (last first_pairs)[1]
