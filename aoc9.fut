@@ -31,15 +31,16 @@ def number_parser (v: []u8) (index: [2]i64): i64 =
 
 let newline_ascii: u8 = 10
 let bar_ascii: u8 = 124
+let comma_ascii: u8 = 44
 let lines = split_by newline_ascii
 
 def main (x: []u8) =
-    let idx = (tabulate ((length x) - 1) (\i ->
+    let double_newline_idx = (tabulate ((length x) - 1) (\i ->
         if (x[i], x[i+1]) ==
             (newline_ascii, newline_ascii)
         then i else 0
     )) |> (reduce (+) 0)
-    let (first, second) = split (x :> [idx + ((length x) - idx)]u8)
+    let (first, second) = split (x :> [double_newline_idx + ((length x) - double_newline_idx)]u8)
     let second = drop 2 second
     let (first_lines, second_lines) = (lines first, lines second)
 
@@ -51,5 +52,27 @@ def main (x: []u8) =
             in map (map (+s)) elems_typed
         )
         |> map (map (number_parser first))
+    let max_val = 1 + i64.maximum (map i64.maximum first_pairs)
+    let earlier_idces = first_pairs
+        |> map (\pair -> (pair[0], pair[1]))
+    let earlier = replicate max_val (replicate max_val false)
+    let earlier = scatter_2d earlier earlier_idces (rep true)
 
-    in (last first_pairs)[1]
+    let second_matches = second_lines
+        |> map (\idces ->
+            let numbers = splitter comma_ascii second idces
+                |> map (number_parser second)
+            let pairs_match = numbers
+                |> zip (indices numbers)
+                |> init
+                |> map (\(i, x) ->
+                    numbers[i+1:]
+                        |> map (\y -> earlier[x, y])
+                        |> reduce (&&) true
+                )
+                |> reduce (&&) true
+            in if pairs_match then numbers[(length numbers) // 2] else 0
+        )
+
+    in second_matches
+        |> reduce (+) 0
