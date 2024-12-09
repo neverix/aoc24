@@ -58,17 +58,17 @@ def simulate (h: i64) (w: i64) (arr_coord: [2]i64) (arr_dir: arrow) (x: [][]u8):
     let status: sim_res = #escaped
     let boards = replicate 4 x
     let x = manifest x
-    -- let (_, _, _, result) = loop (boards, arr_coord, arr_dir, status)
-    --     while (status == #escaped) && in_bounds arr_coord do
-    --     let arr_idx = arrow_index arr_dir
-    --     let new_coord = map2 (+) arr_coord (arrow_direction arr_dir)
-    --     let new_boards = (manifest boards) with [arr_idx, arr_coord[0], arr_coord[1]] = 'X'
-    --     in if boards[arr_idx, arr_coord[0], arr_coord[1]] == 'X' then (boards, arr_coord, arr_dir, #looped)
-    --     else if !(in_bounds new_coord) then (boards, new_coord, arr_dir, status) else
-    --         let cell = x[new_coord[0], new_coord[1]]
-    --         in if cell == '#' then (new_boards, arr_coord, rot90 arr_dir, status) else
-    --             (new_boards, new_coord, arr_dir, status)
-    in status
+    let (_, _, _, result) = loop (boards, arr_coord, arr_dir, status)
+        while (status == #escaped) && in_bounds arr_coord do
+        let arr_idx = arrow_index arr_dir
+        let new_coord = map2 (+) arr_coord (arrow_direction arr_dir)
+        let new_boards = (manifest boards) with [arr_idx, arr_coord[0], arr_coord[1]] = 'X'
+        in if boards[arr_idx, arr_coord[0], arr_coord[1]] == 'X' then (boards, arr_coord, arr_dir, #looped)
+        else if !(in_bounds new_coord) then (boards, new_coord, arr_dir, status) else
+            let cell = x[new_coord[0], new_coord[1]]
+            in if cell == '#' then (new_boards, arr_coord, rot90 arr_dir, status) else
+                (new_boards, new_coord, arr_dir, status)
+    in result
 
 def main [n] (board: [n]u8) =
     let newline_idx = unwrap_i64 (index_of (== '\n') board)
