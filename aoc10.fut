@@ -32,17 +32,6 @@ let bar_ascii: u8 = 124
 let comma_ascii: u8 = 44
 let lines = split_by newline_ascii
 
--- https://futhark-lang.org/examples/matrix-multiplication.html
-def matmul [n][m][p] 'a
-           (add: a -> a -> a) (mul: a -> a -> a) (zero: a)
-           (A: [n][m]a) (B: [m][p]a) : [n][p]a =
-  map (\A_row ->
-         map (\B_col ->
-                reduce add zero (map2 mul A_row B_col))
-             (transpose B))
-      A
-let matmul_bool = matmul (||) (&&) false
-
 def correctly_sort [n] (nums: [n]i64) (earlier: [][]bool): i64 =
     let nums = manifest nums
     let nums = loop nums for i in 0..<(n-1) do
@@ -52,13 +41,6 @@ def correctly_sort [n] (nums: [n]i64) (earlier: [][]bool): i64 =
         in nums
     in nums[(length nums) // 2]
 
--- let max_len = second_lines
---     |> map (\idces ->
---         length (splitter comma_ascii second idces)
---     )
---     |> i64.maximum
--- let lte = scatter_2d (manifest earlier) (tabulate (length earlier) (\i -> (i, i))) (rep true)
--- let lte = loop (lte) for _ in 0...(max_val * 10) do matmul_bool lte lte
 def main [n] (x: [n]u8) =
     let idx = -1i64
     let double_newline_idx = loop (idx) for i < (n - 1) do
@@ -100,4 +82,3 @@ def main [n] (x: [n]u8) =
                 |> reduce (&&) true
             in if pairs_match then 0 else correctly_sort numbers earlier)
         |> foldl (+) 0
-
