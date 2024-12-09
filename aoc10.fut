@@ -45,13 +45,20 @@ let matmul_bool = matmul (||) (&&) false
 
 def correctly_sort [n] (nums: [n]i64) (earlier: [][]bool): i64 =
     let nums = manifest nums
-    let nums = loop nums for _ in 0..<n do
-        loop nums for i in 0..<n do
-            loop nums for j in i..<n do
-                if (nums[i] == nums[j]) || earlier[nums[i], nums[j]] then nums
-                else nums with [i] = nums[j] with [j] = nums[i]
+    let nums = loop nums for i in 0..<(n-1) do
+        let (nums, _) = loop (nums, broken) = (nums, false) for j in reverse (0...i) do
+            if broken || (nums[j] == nums[j+1]) || earlier[nums[j], nums[j+1]] then (nums, true)
+            else (nums with [j] = nums[j+1] with [j+1] = nums[j], false)
+        in nums
     in nums[(length nums) // 2]
 
+-- let max_len = second_lines
+--     |> map (\idces ->
+--         length (splitter comma_ascii second idces)
+--     )
+--     |> i64.maximum
+-- let lte = scatter_2d (manifest earlier) (tabulate (length earlier) (\i -> (i, i))) (rep true)
+-- let lte = loop (lte) for _ in 0...(max_val * 10) do matmul_bool lte lte
 def main [n] (x: [n]u8) =
     let idx = -1i64
     let double_newline_idx = loop (idx) for i < (n - 1) do
@@ -77,14 +84,6 @@ def main [n] (x: [n]u8) =
         |> map (\pair -> (pair[0], pair[1]))
     let earlier = replicate max_val (replicate max_val false)
     let earlier = scatter_2d earlier earlier_idces (rep true)
-
-    let max_len = second_lines
-        |> map (\idces ->
-            length (splitter comma_ascii second idces)
-        )
-        |> i64.maximum
-    let lte = scatter_2d (manifest earlier) (tabulate (length earlier) (\i -> (i, i))) (rep true)
-    let lte = loop (lte) for _ in 0...(max_val * 10) do matmul_bool lte lte
 
     in second_lines
         |> map (\idces ->
