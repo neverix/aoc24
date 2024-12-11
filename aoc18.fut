@@ -45,8 +45,11 @@ def main [n] (input: [n]u8) =
         let (l, r, _) = slices_sparse[i]
         let w = r - l
         let fits = \j -> j < l && j + w <= total && all (== -1) fs[j:j+w]
-        let s = loop j = 0 while j + w <= total && !(fits j) do j+1
-        in if fits s then (((fs with [s:s+w] = replicate w i) with [l:r] = replicate w (-1)), i-1) else (fs, i-1)
+        let s = filter fits (0..<l)
+        in if length s > 0 then
+            let s = s[0]
+            in (((fs with [s:s+w] = replicate w i) with [l:r] = replicate w (-1)), i-1)
+        else (fs, i-1)
     let checksum = answer
         |> zip (indices answer)
         |> map (\(i, a) -> if a == -1 then 0 else i * a)
