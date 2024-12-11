@@ -15,7 +15,7 @@ def hyperscatter 'i 't [n] (transformer: i64 -> i -> t) (target: [n]t) (slices: 
     target
         |> zip (indices target)
         |> map (\(i, x) ->
-            let slice_match = binary_search (\(l, r, _) (x, _, _) -> x < r) slices (i, i, slices[0].2)
+            let slice_match = binary_search (\(_l, r, _) (x, _, _) -> x < r) slices (i, i, slices[0].2)
             let (l, r, y) = slices[slice_match]
             in if l <= i && i < r then transformer i y else x
         )

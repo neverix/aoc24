@@ -34,4 +34,11 @@ def run_subprocess_with_input(command, input_string):
 
 to_write = str(list(map(ord, open("input.txt").read())))
 result = run_subprocess_with_input("./executable", to_write).stdout
-print(result)
+try:
+    from pprint import pprint
+    print("Pretty:")
+    pprint(eval(result.replace("i64", "")))
+except (ValueError, TypeError):
+    print("Warning:")
+    import traceback
+    traceback.print_exc()
