@@ -36,21 +36,33 @@ def main [n] (board: [n]u8) =
     let board = unflatten (board :> [height*width]u8)
     let (board, width) = (map init board, width - 1)
     let digits = map (map (+ (-'0'))) (map (map i64.u8) board)
-    let visited_fw = find_visited (digits)
-    let visited_bw = find_visited (map (map (\x -> 9 - x)) digits)
-    let visited_at_all = map2 (map2 (&&)) (map (map (>0)) visited_fw) (map (map (>0)) visited_bw)
-    let visited = map3 (map3 (\x y z -> if z then y else 0)) visited_fw visited_bw visited_at_all
-    let nines_nearby: i64 = tabulate height (\y ->
-        tabulate width (\x ->
-            if digits[y, x] == 9 then (
-                let options = [(y - 1, x), (y, x + 1), (y + 1, x), (y, x - 1)]
-                in options
-                    |> filter (\(y, x) -> x >= 0 && y >= 0 && x < width && y < height)
-                    |> map (\(y, x) -> visited[y, x])
-                    |> foldl (+) 0
-            ) else 0
-        )
-        |> foldl (+) 0
-    ) |> foldl (+) 0
-    -- in nines_nearby
-    in visited
+    let trailheads = tabulate height (\y -> tabulate width (\x -> (y, x)))
+        |> flatten
+        |> filter (\(y, x) -> digits[y, x] == 0)
+    let all_nines = trailheads
+        |> map(\(ty, tx) ->
+        -- let digits = digits
+        let digits = tabulate height (\y -> tabulate width (\x ->
+            if digits[y, x] != 0 then digits[y, x] else
+            if (y, x) == (ty, tx) then 0 else -1
+        ))
+        let visited_fw = find_visited (digits)
+        let visited_bw = find_visited (map (map (\x -> 9 - x)) digits)
+        let visited_at_all = map2 (map2 (&&)) (map (map (>0)) visited_fw) (map (map (>0)) visited_bw)
+        let visited = map3 (map3 (\x y z -> if z then y else 0)) visited_fw visited_bw visited_at_all
+        let nines_nearby: i64 = tabulate height (\y ->
+            tabulate width (\x ->
+                if digits[y, x] == 9 then (
+                    if visited_at_all[y, x] then 1 else 0
+                    -- let options = [(y - 1, x), (y, x + 1), (y + 1, x), (y, x - 1)]
+                    -- in if (options
+                    --     |> filter (\(y, x) -> x >= 0 && y >= 0 && x < width && y < height)
+                    --     |> map (\(y, x) -> if visited_at_all[y, x] then 1 else 0)
+                    --     |> foldl (+) 0) > 0 then 1 else 0
+                ) else 0
+            )
+            |> foldl (+) 0
+        ) |> foldl (+) 0
+        in nines_nearby
+    )
+    in all_nines |> foldl (+) 0
