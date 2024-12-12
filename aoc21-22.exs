@@ -40,7 +40,10 @@ defmodule D11P1 do
                 hl = Integer.floor_div(length(ts), 2)
                 {ts_1, ts_2} = {Enum.slice(ts, 0, hl), Enum.slice(ts, hl, length(ts) - hl)}
                 {ts_1, ts_2} = {String.to_integer(ts_1 |> to_string), String.to_integer(ts_2 |> to_string)}
-                find_blink(ts_1, remaining-1) + find_blink(ts_2, remaining - 1)
+                # b = Task.async(fn -> find_blink(ts_2, remaining-1) end)
+                # a = find_blink(ts_1, remaining-1)
+                # a + Task.await(b, :infinity)
+                find_blink(ts_1, remaining-1) + find_blink(ts_2, remaining-1)
               else
                 find_blink(num * 2024, remaining - 1)
               end
@@ -70,7 +73,11 @@ defmodule D11P1 do
     IO.inspect(numbers)
     {:ok, _} = SharedCache.start_link()
 
-    IO.inspect(numbers |> Enum.map(&(find_blink(&1, 75))) |> Enum.reduce(0, &(&1 + &2)))
+    IO.inspect(numbers
+      |> Enum.map(&find_blink(&1, 400))
+      # |> Enum.map(fn x -> Task.async(fn -> find_blink(x, 400) end) end)
+      # |> Task.await_many(:infinity)
+      |> Enum.reduce(0, &(&1 + &2)))
     # IO.inspect(find_blink(125, 25) + find_blink(17, 25))
   end
 end
