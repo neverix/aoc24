@@ -15,6 +15,10 @@ defmodule SharedCache do
     Agent.get(__MODULE__, fn map -> Map.get(map, key) end)
   end
 
+  def has?(key) do
+    Agent.get(__MODULE__, fn map -> Map.has_key?(map, key) end)
+  end
+
   def get_all do
     Agent.get(__MODULE__, fn map -> map end)
   end
@@ -22,22 +26,29 @@ end
 
 defmodule D11P1 do
   def find_blink(num, remaining) do
-    case remaining do
-      0 -> 1
-      n ->
-        if (num == 0) do
-          find_blink(1, remaining-1)
-        else
-          ts = num |> to_string |> to_char_list
-          if (rem(length(ts), 2) == 0) do
-            hl = Integer.floor_div(length(ts), 2)
-            {ts_1, ts_2} = {Enum.slice(ts, 0, hl), Enum.slice(ts, hl, length(ts) - hl)}
-            {ts_1, ts_2} = {String.to_integer(ts_1 |> to_string), String.to_integer(ts_2 |> to_string)}
-            find_blink(ts_1, remaining-1) + find_blink(ts_2, remaining - 1)
-          else
-            find_blink(num * 2024, remaining - 1)
-          end
+    key = {num, remaining}
+    case SharedCache.read(key) do
+      nil ->
+        result = case remaining do
+          0 -> 1
+          n ->
+            if (num == 0) do
+              find_blink(1, remaining-1)
+            else
+              ts = num |> to_string |> to_char_list
+              if (rem(length(ts), 2) == 0) do
+                hl = Integer.floor_div(length(ts), 2)
+                {ts_1, ts_2} = {Enum.slice(ts, 0, hl), Enum.slice(ts, hl, length(ts) - hl)}
+                {ts_1, ts_2} = {String.to_integer(ts_1 |> to_string), String.to_integer(ts_2 |> to_string)}
+                find_blink(ts_1, remaining-1) + find_blink(ts_2, remaining - 1)
+              else
+                find_blink(num * 2024, remaining - 1)
+              end
+            end
         end
+        SharedCache.write(key, result)
+        result
+      x -> x
     end
   end
 
@@ -59,7 +70,7 @@ defmodule D11P1 do
     IO.inspect(numbers)
     {:ok, _} = SharedCache.start_link()
 
-    IO.inspect(numbers |> Enum.map(&(find_blink(&1, 25))) |> Enum.reduce(0, &(&1 + &2)))
+    IO.inspect(numbers |> Enum.map(&(find_blink(&1, 75))) |> Enum.reduce(0, &(&1 + &2)))
     # IO.inspect(find_blink(125, 25) + find_blink(17, 25))
   end
 end
