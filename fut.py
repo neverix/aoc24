@@ -37,7 +37,7 @@ result = run_subprocess_with_input("./executable", to_write).stdout
 try:
     from pprint import pprint
     print("Pretty:")
-    pprint(eval(result.replace("i64", "")))
+    pprint(eval(result.replace("i64", "").replace("i32", "").replace("u8", "")))
 except (ValueError, TypeError):
     print("Warning:")
     import traceback
