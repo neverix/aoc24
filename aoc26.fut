@@ -1,7 +1,7 @@
 import "parsing"
 
 -- def prefix = ""
-def prefix = "1000000000"
+def prefix = "100000"
 
 def matmul [n][m] 't (add: t -> t -> t) (mul: t -> t -> t) (zero: t) (x: [n][m]t) (y: [m]t): [n]t =
     map (\z -> reduce add zero (map2 mul y z)) x
@@ -30,33 +30,83 @@ def main [n] (text: [n]u8) =
             }
         )
     let smallest = parsed
-        |> map (\{a_x, a_y, b_x, b_y, t_x, t_y} ->
-            let null = [0f64, 0f64, 0f64, 0f64]
+        |> map (\{a_x, a_y, b_x, b_y, t_x, t_y} -> (
             -- let null = 0i64
-            let det = a_x * b_y - a_y * b_x
-            in if det == 0 then assert false null else
-            let inv_mat = [[b_y, -b_x], [-a_y, a_x]] |> map (map (f64.i64 >-> (/(f64.i64 det))))
-            let t_vec = [f64.i64 t_x, f64.i64 t_y]
-            let inv_vec = matmul_f64 inv_mat t_vec
-            let mat = [[a_x, b_x], [a_y, b_y]] |> map (map (f64.i64))
-            in if all (<1e-1) <| map (f64.abs) <| map2 (-) (matmul_f64 mat inv_vec) t_vec then
-                let sqr = \x -> x * x
-                let loss_fn = \inv_vec -> (
-                    f64.sum (map sqr <| map2 (-) (matmul_f64 mat inv_vec) t_vec)
-                    + f64.sum (map sqr <| map2 (-) (map f64.round inv_vec) inv_vec)
-                )
-                let loss_grad = \x -> vjp loss_fn x 1f64
-                let new_inv_vec = (.1) <| loop (i, x) = (0, inv_vec) while i < 100 do
-                    (i + 1, map2 (-) x <| map (*(1e-2/(f64.sum <| map f64.abs inv_vec))) <| loss_grad x)
-                in (new_inv_vec ++ (matmul_f64 mat new_inv_vec)) :> [4]f64
-                -- let inv_vec = new_inv_vec
-                -- in if all (\x -> f64.abs(x - f64.round x) < 1e-2) inv_vec then
-                --     i64.f64 <| f64.round (inv_vec[0] * 3 + inv_vec[1])
-                --     -- i64.f64 new_inv_vec[0]
-                --     -- (new_inv_vec ++ (matmul_f64 mat new_inv_vec))
-                -- else null
-            else
-                null
-        )
+            let null = [0i64, 0i64, 0i64, 0i64]
+            let base_iters = reduce i64.min i64.highest [(t_x/a_x + 1), (t_y/a_y + 1)]
+            let idces = [{a_x, t_x, b_x}, {a_x = a_y, t_x = t_y, b_x = b_y}] |> map (\{a_x, t_x, b_x} ->
+                let conds = tabulate 10000 (\a -> (t_x - a * a_x) % b_x == 0)
+                let idces = conds
+                    |> zip (indices conds) |> filter (.1) |> map (.0)
+                in (if length idces == 0 then #none else #some (idces[:4] :> [4]i64)) :> (option([4]i64)))
+            in match (idces[0], idces[1])
+                case (#none, #none) -> null
+                case (#some _, #none) -> null
+                case (#none, #some _) -> null
+                case (#some a, #some b) ->
+                    let (a_b, a_w) = (a[0], a[1] - a[0])
+                    let (b_b, b_w) = (b[0], b[1] - b[0])
+                    let matches = tabulate 1000 (\a_v ->
+                        let rem = (a_b + a_w * a_v) - b_b
+                        in rem >= 0 && rem % b_w == 0
+                    )
+                    let idces = matches
+                        |> zip (indices matches) |> filter (.1) |> map (.0)
+                    in match length idces
+                        case 0 -> null
+                        case 1 -> assert false (replicate 4 idces[0])
+                        case _ ->
+                            let (a_b_2, a_w_2) = (idces[0], idces[1] - idces[0])
+                            let (a_b, a_w) = (a_b + a_b_2 * a_w, a_w_2 * a_w)
+                            let (x_rem0, y_rem0) = ((t_x - a_b * a_x) / b_x, (t_y - a_b * a_y) / b_y)
+                            let (x_rem1, y_rem1) = ((t_x - (a_b + a_w) * a_x) / b_x, (t_y - (a_b + a_w) * a_y) / b_y)
+
+                            -- let a_w = a_w * 2
+                            -- in [(t_x - a_b * a_x) % b_x + 1, (t_y - a_b * a_y) % b_y + 1,
+                            --     (t_x - (a_b + a_w) * a_x) % b_x + 1, (t_y - (a_b + a_w) * a_y) % b_y + 1]
+
+                            -- a + bx = c + dx
+                            -- a - c + bx = dx
+                            -- a - c = dx - bx
+                            -- (a-c)/(b-d)
+
+                            let a = x_rem0
+                            let b = x_rem1 - x_rem0
+                            let c = y_rem0
+                            let d = y_rem1 - y_rem0
+                            -- (b-d)x = (c-a)
+                            -- x = (a-c)/(b-d)
+                            in [t_x - x_rem0, t_x - x_rem1, 0, 0]
+                            -- in [a-c, b-d, (a-c)%(b-d), (a-c)/(b-d)]
+                            -- in if (c - a) % (b - d) != 0 then null else
+                            -- let _ = 0
+                            -- in [a, b, c, d]
+                            -- if (a - c) / (b - d) <= 0 then null else
+                            -- let a = (a - c) / (b - d)
+                            -- in [a, a, a, a]
+
+                        --     -- in [length idces, x_b, x_w, idces[0]]
+                        --     in tabulate 4 (\a_v_2 ->
+                        --         let a_v = a_v_2 * a_w_2 + a_b_2
+                        --         let b_v = ((a_b + a_w * a_v) - b_b) / b_w
+                        --         in t_x - (a_x * a_v) % b_v
+                        --     )
+                        -- in [a_b, a_w, b_b, b_w]
+            -- in indices |> map (or_default [0, 0, 0, 0])
+            -- -- let cost = tabulate iters (\a ->
+            -- --     let b = (t_x - a * a_x) / b_x
+            -- --     in if a * a_x + b * b_x != t_x || a * a_y + b * b_y != t_y
+            -- --         then #none
+            -- --         else #some (a * 3 + b)
+            -- -- )
+            -- -- |> reduce_comm (\a b -> match a
+            -- --     case #none -> b
+            -- --     case #some x -> match b
+            -- --         case #none -> a
+            -- --         case #some y ->
+            -- --             if x < y then a else b
+            -- -- ) #none
+            -- -- in cost |> or_default 0
+        ))
     in smallest 
     -- in reduce (+) 0 smallest
