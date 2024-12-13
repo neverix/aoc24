@@ -6,6 +6,6 @@ then
 fi
 
 set -e
-futhark c $1.fut -o executable
+futhark multicore $1.fut -o executable
 chmod a+x executable
 python fut.py

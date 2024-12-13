@@ -37,9 +37,3 @@ def main [n] (text: [n]u8) =
             in or_default 0 best_result
         )
     in reduce (+) 0 smallest
-
-    -- let newline_idx = unwrap_i64 (index_of (== '\n') board)
-    -- let width = newline_idx+1
-    -- let height = (length board) / width
-    -- let board = unflatten (board :> [height*width]u8)
-    -- let (board, width) = (map init board, width - 1)
