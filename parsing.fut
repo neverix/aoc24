@@ -1,5 +1,22 @@
+type option 't = #some t | #none
+
+def or_default 't (default: t) (v: option t): t =
+    match v
+        case #some x -> x
+        case #none -> default
+
+def unwrap 't (default: t) (v: option t): t =
+    match v
+        case #some x -> x
+        case #none -> assert false default
+let unwrap_i64 = unwrap 0i64
+
+def is_some 't (v: option t): bool =
+    match v
+        case #some _ -> true
+        case #none -> false
+
 module parsing = {
-    type option 't = #some t | #none
 
     def index_of 't [n] (cond: t -> bool) (x: [n]t): option i64 =
         let indices = x
@@ -7,17 +24,6 @@ module parsing = {
             |> filter (\(_, v) -> cond v)
             |> map (\(i, _) -> i)
         in if length indices == 0 then #none else #some (head indices)
-
-    def unwrap 't (default: t) (v: option t): t =
-        match v
-            case #some x -> x
-            case #none -> assert false default
-    let unwrap_i64 = unwrap 0i64
-
-    def is_some 't (v: option t): bool =
-        match v
-            case #some _ -> true
-            case #none -> false
 
     def split_by 't [n] (v: u8) (a: [n]u8): [][2]i64 =
         let indices = (zip (iota n) a)
