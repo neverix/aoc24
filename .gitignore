@@ -3,3 +3,5 @@ log
 .lake/
 SciLean/
 executable*
+*.c
+*.md

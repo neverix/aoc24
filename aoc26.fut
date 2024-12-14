@@ -1,12 +1,207 @@
 import "parsing"
 
 -- def prefix = ""
-def prefix = "100000"
+def prefix = "10000000000000"
 
-def matmul [n][m] 't (add: t -> t -> t) (mul: t -> t -> t) (zero: t) (x: [n][m]t) (y: [m]t): [n]t =
-    map (\z -> reduce add zero (map2 mul y z)) x
+import "parsing"
 
-def matmul_f64 = matmul (+) (*) (0f64)
+
+type gcds = {gcd: i64, aw: i64, bw: i64}
+def egcd (a: i64) (b: i64): gcds =
+    let (a, _, a_w_a, a_w_b, _, _) = loop (a, b, a_w_a, a_w_b, b_w_a, b_w_b) = (a, b, 1, 0, 0, 1)
+        for _ in 0...200 do
+            if b == 0 then (a, b, a_w_a, a_w_b, b_w_a, b_w_b) else
+            let m = a / b
+            in (b, a - b * m, b_w_a, b_w_b, a_w_a - b_w_a * m, a_w_b - b_w_b * m)
+    in {gcd = a, aw = a_w_a, bw = a_w_b}
+def gcd_flip ({gcd, aw, bw}: gcds) =
+    {gcd = -gcd, aw = -aw, bw = -bw}
+
+def egcd_example a b =
+    let r = egcd a b
+    in [r.gcd, r.aw, r.bw]
+
+-- > egcd_example 9 6
+
+-- > egcd_example 22 94
+
+-- > egcd_example 22 -94
+
+-- > egcd_example -94 22
+
+type dio_sol = {a0: i64, aw: i64, b0: i64, bw: i64}
+
+def solve_dio (a: i64) (b: i64) (c: i64): option(dio_sol) =
+    let {gcd, aw, bw} = egcd a b
+    in if c % gcd != 0 then #none else
+    let m = c / gcd
+    let (a0, b0) = (aw * m, bw * m)
+    in #some {a0, b0, aw=b/gcd, bw= -a/gcd}
+
+
+def dio_pos (ds: dio_sol): dio_sol =
+    let {a0, aw, b0, bw} = ds
+    in if a0 >= 0 && b0 >= 0 then ds else
+    if a0 < 0 then
+        let m = -(-a0 - (-aw - 1)) / (-aw)
+        in {a0 = a0 + aw * m, b0 = b0 + bw * m, aw, bw}
+    else
+        let m = -(-b0 ) / (-bw)
+        in {a0 = a0 + aw * m, b0 = b0 + bw * m, aw, bw}
+
+
+
+def dio_min ({a0, aw, b0, bw}: dio_sol): dio_sol =
+    let m = if a0 < 0 then
+        (-a0 + aw - 1) / aw
+    else
+        -(a0) / aw
+    in {a0 = a0 + aw * m, b0 = b0 + bw * m, aw, bw}
+
+def ddio = {a0=0, aw=0, b0=0, bw=0} :> dio_sol
+def dunwrap = unwrap (ddio)
+def dio_example a b c =
+    let r = dunwrap (solve_dio a b c)
+    -- let r = dio_pos <| dio_min r
+    let r = dio_pos r
+    in [r.a0, r.b0, r.aw, r.bw,
+        r.a0 * a + r.b0 * b, r.aw * a + r.bw * b]
+
+-- > dio_example 22 94 138
+
+-- > dio_example 22 94 8400
+
+-- > dio_example 94 22 8400
+
+-- returns a linked dio_sol
+def dio_combine_single (ds: dio_sol): option(dio_sol) =
+    -- ds.a0 + x * ds.aw = ds.b0 + y * ds.bw
+    -- ds.a0 - ds.b0 = x * (-ds.aw) + y * ds.bw
+    solve_dio (-ds.aw) (ds.bw) (ds.a0 - ds.b0)
+
+def dcs_example a0 aw b0 bw =
+    let r = dunwrap (dio_combine_single {a0, aw, b0, bw})
+    in [r.a0, r.b0, r.aw, r.bw]
+
+-- > dcs_example 2 3 0 4
+
+def dio_combine_single_simple (ds: dio_sol): option((i64, i64)) =
+    match dio_combine_single ds
+    case #none -> #none
+    case #some {a0, aw, b0 = _, bw = _} -> #some (
+        a0 * ds.aw + ds.a0, aw * ds.aw
+    )
+
+def dcss_example a0 aw b0 bw =
+    let (a, b) = unwrap (0, 0) (dio_combine_single_simple {a0, aw, b0, bw})
+    in [a, b]
+
+-- > dcss_example 2 3 0 4
+
+-- > dcss_example 147 67 80 11
+
+-- > dcss_example 40 -47 6 -34
+
+def dio_combine (a: dio_sol) (b: dio_sol): option(dio_sol) =
+    match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
+    case #none -> #none
+    case #some {a0, b0, aw, bw} -> #some (
+        {
+            a0=a.a0 + a.aw*a0,
+            aw=a.aw*aw,
+            b0=a.b0 + a.bw*a0,
+            bw=a.bw*aw
+        }
+    )
+
+    -- match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
+    -- case #none -> #none
+    -- case #some ds1 ->
+    -- match dio_combine_single {a0 = a.b0, aw = a.bw, b0=b.b0, bw=b.bw}
+    -- case #none -> #none
+    -- case #some ds2 ->
+    -- -- ds1: some weighting of x's and y's solutions that
+    -- --  preserves the correctness
+    -- match dio_combine_single_simple {
+    --     a0=ds1.a0, aw=ds1.aw, b0=ds2.a0, bw=ds2.aw
+    -- }
+    -- case #none -> #none
+    -- case #some (a0, aw) ->
+    -- match dio_combine_single_simple {
+    --     a0=ds1.b0, aw=ds1.bw, b0=ds2.b0, bw=ds2.bw
+    -- }
+
+    -- case #none -> #none
+    -- case #some (b0, bw) -> #some (
+    --     -- let a_b_combinations = {a0, aw, b0, bw}
+    --     -- in a_b_combinations
+    --     {
+    --         a0=a.a0 + a.aw*a0 + b.a0 + b.aw*b0,
+    --         -- aw=a.aw*aw + b.aw*bw,
+    --         aw=a.aw*aw,
+    --         b0=a.b0 + a.bw*a0 + b.b0 + b.bw*b0,
+    --         -- bw=a.bw*aw + b.bw*bw
+    --         bw=a.bw*aw
+    --     }
+    -- )
+
+    -- -- let a_options = dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
+    -- match dio_combine_single_simple {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
+    -- case #none -> #none
+    -- case #some (a0, aw) ->
+    -- match dio_combine_single_simple {a0 = a.b0, aw = a.bw, b0=b.b0, bw=b.bw}
+    -- case #none -> #none
+    -- case #some (b0, bw) ->
+    -- -- if (a0 - a.a0) % aw != 0 then #none else
+    -- -- if (b0 - b.b0) % bw != 0 then #none else
+    -- -- #some {a0 = a.a0, aw, b0 = b.b0, bw}
+    -- #some {a0, aw, b0, bw}
+    -- -- in #some a
+
+def dc_example a b c d e f =
+    let x = dunwrap (solve_dio a b e)
+    let y = dunwrap (solve_dio c d f)
+    -- let x = dio_pos x
+    -- let y = dio_pos y
+    -- let z = dunwrap <| dio_combine x y
+    let z = dunwrap <| dio_combine x y
+    -- let z = x
+    -- let z = y
+    let z = dio_pos z
+
+    -- x: line of (a,b)'s which are correct in the first coordingate
+    -- y: line of (a,b)'s which are correct in the second coordinate
+    -- how to solve this? find a/b weights that make a match. this is it.
+    -- handle special cases later. !!
+
+    in [z.a0, z.b0, z.aw, z.bw,
+        z.a0 * a + z.b0 * b, z.a0 * c + z.b0 * d]
+    -- let z: (dio_sol, dio_sol) = unwrap (ddio, ddio) <| dio_combine x y
+    -- in [
+    --     [z.0.a0, z.0.b0, z.0.aw, z.0.bw],
+    --     [z.1.a0, z.1.b0, z.1.aw, z.1.bw]
+    -- ]
+
+-- > dc_example 94 22 34 67 8400 5400
+
+-- > dc_example 94 22 34 67 100000000000008400 100000000000005400
+
+def solve a b c d e f: option dio_sol =
+    match solve_dio a b e
+    case #none -> #none
+    case #some x ->
+    match solve_dio c d f
+    case #none -> #none
+    case #some y ->
+    -- let z = dunwrap <| dio_combine x y
+    match dio_combine x y
+    case #none -> #none
+    case #some z ->
+    -- #some (dio_pos z)
+    let u = dio_pos z
+    in if u.a0 < 0 || u.b0 < 0 then #none
+    else #some u
+
 
 def main [n] (text: [n]u8) =
     let segments = parsing.split_by_long ['\n', '\n'] text
@@ -31,82 +226,38 @@ def main [n] (text: [n]u8) =
         )
     let smallest = parsed
         |> map (\{a_x, a_y, b_x, b_y, t_x, t_y} -> (
-            -- let null = 0i64
-            let null = [0i64, 0i64, 0i64, 0i64]
-            let base_iters = reduce i64.min i64.highest [(t_x/a_x + 1), (t_y/a_y + 1)]
-            let idces = [{a_x, t_x, b_x}, {a_x = a_y, t_x = t_y, b_x = b_y}] |> map (\{a_x, t_x, b_x} ->
-                let conds = tabulate 10000 (\a -> (t_x - a * a_x) % b_x == 0)
-                let idces = conds
-                    |> zip (indices conds) |> filter (.1) |> map (.0)
-                in (if length idces == 0 then #none else #some (idces[:4] :> [4]i64)) :> (option([4]i64)))
-            in match (idces[0], idces[1])
-                case (#none, #none) -> null
-                case (#some _, #none) -> null
-                case (#none, #some _) -> null
-                case (#some a, #some b) ->
-                    let (a_b, a_w) = (a[0], a[1] - a[0])
-                    let (b_b, b_w) = (b[0], b[1] - b[0])
-                    let matches = tabulate 1000 (\a_v ->
-                        let rem = (a_b + a_w * a_v) - b_b
-                        in rem >= 0 && rem % b_w == 0
-                    )
-                    let idces = matches
-                        |> zip (indices matches) |> filter (.1) |> map (.0)
-                    in match length idces
-                        case 0 -> null
-                        case 1 -> assert false (replicate 4 idces[0])
-                        case _ ->
-                            let (a_b_2, a_w_2) = (idces[0], idces[1] - idces[0])
-                            let (a_b, a_w) = (a_b + a_b_2 * a_w, a_w_2 * a_w)
-                            let (x_rem0, y_rem0) = ((t_x - a_b * a_x) / b_x, (t_y - a_b * a_y) / b_y)
-                            let (x_rem1, y_rem1) = ((t_x - (a_b + a_w) * a_x) / b_x, (t_y - (a_b + a_w) * a_y) / b_y)
-
-                            -- let a_w = a_w * 2
-                            -- in [(t_x - a_b * a_x) % b_x + 1, (t_y - a_b * a_y) % b_y + 1,
-                            --     (t_x - (a_b + a_w) * a_x) % b_x + 1, (t_y - (a_b + a_w) * a_y) % b_y + 1]
-
-                            -- a + bx = c + dx
-                            -- a - c + bx = dx
-                            -- a - c = dx - bx
-                            -- (a-c)/(b-d)
-
-                            let a = x_rem0
-                            let b = x_rem1 - x_rem0
-                            let c = y_rem0
-                            let d = y_rem1 - y_rem0
-                            -- (b-d)x = (c-a)
-                            -- x = (a-c)/(b-d)
-                            in [t_x - x_rem0, t_x - x_rem1, 0, 0]
-                            -- in [a-c, b-d, (a-c)%(b-d), (a-c)/(b-d)]
-                            -- in if (c - a) % (b - d) != 0 then null else
-                            -- let _ = 0
-                            -- in [a, b, c, d]
-                            -- if (a - c) / (b - d) <= 0 then null else
-                            -- let a = (a - c) / (b - d)
-                            -- in [a, a, a, a]
-
-                        --     -- in [length idces, x_b, x_w, idces[0]]
-                        --     in tabulate 4 (\a_v_2 ->
-                        --         let a_v = a_v_2 * a_w_2 + a_b_2
-                        --         let b_v = ((a_b + a_w * a_v) - b_b) / b_w
-                        --         in t_x - (a_x * a_v) % b_v
-                        --     )
-                        -- in [a_b, a_w, b_b, b_w]
-            -- in indices |> map (or_default [0, 0, 0, 0])
-            -- -- let cost = tabulate iters (\a ->
-            -- --     let b = (t_x - a * a_x) / b_x
-            -- --     in if a * a_x + b * b_x != t_x || a * a_y + b * b_y != t_y
-            -- --         then #none
-            -- --         else #some (a * 3 + b)
-            -- -- )
-            -- -- |> reduce_comm (\a b -> match a
-            -- --     case #none -> b
-            -- --     case #some x -> match b
-            -- --         case #none -> a
-            -- --         case #some y ->
-            -- --             if x < y then a else b
-            -- -- ) #none
-            -- -- in cost |> or_default 0
+            let null = [0, 0, 0, 0]
+            in match solve a_x b_x a_y b_y t_x t_y
+            case #none -> null
+            case #some x ->
+                -- let _ = assert (x.bw < 0) 0
+                let x = if x.bw < 0 then x else
+                    {a0 = x.a0, b0 = x.b0,
+                    aw = -x.aw, bw = -x.bw}
+                let left_bound = -(x.a0 / x.aw)
+                let right_bound = x.b0 / (-x.bw)
+                in if left_bound > right_bound then [0, 0, 0, 0]
+                else if left_bound == right_bound then [x.a0, x.b0, left_bound, right_bound]
+                else (
+                    -- equation:
+                    -- max (a0 + x * aw) * 3 + (a1 + x * bw)
+                    -- 3aw + bw
+                    --  [x.a0, x.b0, right_bound - left_bound,
+                    --  i64.bool (3 * x.aw + x.bw > 0)]
+                    if 3 * x.aw + x.bw > 0 then
+                        -- maximize x!
+                        [x.a0 + x.aw * right_bound,
+                        x.b0 + x.bw * right_bound,
+                        1, x.b0]
+                    else
+                        [x.a0 + x.aw * left_bound,
+                        x.b0 + x.bw * left_bound,
+                        0, x.b0]
+                )
+                -- else [x.a0, x.b0, left_bound, right_bound]
         ))
-    in smallest 
-    -- in reduce (+) 0 smallest
+    in smallest
+    -- in smallest
+    --     |> map (\x -> (x[0] ,x[1]))
+    --     |> map (\(a, b) -> a * 3 + b)
+    --     |> reduce (+) 0
