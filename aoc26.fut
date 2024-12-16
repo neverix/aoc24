@@ -1,7 +1,7 @@
 import "parsing"
 
--- def prefix = ""
-def prefix = "10000000000000"
+def prefix = 0i64
+-- def prefix = 10000000000000
 
 import "parsing"
 
@@ -220,8 +220,8 @@ def main [n] (text: [n]u8) =
                 a_y = parsing.parse_number line1[18:20],
                 b_x = parsing.parse_number line2[12:14],
                 b_y = parsing.parse_number line2[18:20],
-                t_x = parsing.parse_number (prefix ++ line3[x_start:x_end]),
-                t_y = parsing.parse_number (prefix ++ line3[y_start:])
+                t_x = prefix + parsing.parse_number (line3[x_start:x_end]),
+                t_y = prefix + parsing.parse_number (line3[y_start:])
             }
         )
     let smallest = parsed
