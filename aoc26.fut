@@ -1,7 +1,7 @@
 import "parsing"
 
-def prefix = 0i64
--- def prefix = 10000000000000
+-- def prefix = 0i64
+def prefix = 10000000000000i64
 
 import "parsing"
 
@@ -102,29 +102,48 @@ def dcss_example a0 aw b0 bw =
 
 -- > dcss_example 40 -47 6 -34
 
-def dio_combine (a: dio_sol) (b: dio_sol): option(dio_sol) =
-    match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
-    case #none -> #none
-    case #some {a0=x_a0, b0=x_b0, aw=x_aw, bw=x_bw} ->
-    match dio_combine_single {a0 = a.b0, aw = a.bw, b0=b.b0, bw=b.bw}
-    case #none -> #none
-    case #some {a0=y_a0, b0=y_b0, aw=y_aw, bw=y_bw} ->
-    #some {a0=x_a0, aw=x_aw, b0=y_a0, bw=y_aw}
-    -- #some {a0=x_b0, aw=x_bw, b0=y_b0, bw=y_bw}
+def dio_combine (a: dio_sol) (b: dio_sol): option((i64, i64)) =
+    let b_coeff_top = (
+        (a.aw * (b.b0 - a.b0) - a.bw * (b.a0 - a.a0))
+    )
+    let b_coeff_bot = (
+        (a.bw * b.aw - b.bw * a.aw)
+    )
+    in if b_coeff_top % b_coeff_bot != 0 then #none else
+    let b_coeff = b_coeff_top / b_coeff_bot
+    let a_coeff = (b.a0 - a.a0 + b.aw * b_coeff) / a.aw
+    in if a.a0 + a.aw * a_coeff == b.a0 + b.aw * b_coeff
+    && a.b0 + a.bw * a_coeff == b.b0 + b.bw * b_coeff then (#some (a_coeff, b_coeff)) else #none
+    -- match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
+    -- case #none -> #none
+    -- case #some {a0=x_a0, b0=x_b0, aw=x_aw, bw=x_bw} ->
+    -- match dio_combine_single {a0 = a.b0, aw = a.bw, b0=b.b0, bw=b.bw}
+    -- case #none -> #none
+    -- case #some {a0=y_a0, b0=y_b0, aw=y_aw, bw=y_bw} ->
+    -- #some {a0=x_a0, aw=x_aw, b0=y_a0, bw=y_aw}
+    -- -- #some {a0=x_b0, aw=x_bw, b0=y_b0, bw=y_bw}
 
 
 def doc_example a_x0 a_xw a_y0 a_yw b_x0 b_xw b_y0 b_yw =
-    let sol = dunwrap (dio_combine
+    let sol = unwrap (0, 0) (dio_combine
         {a0=a_x0, aw=a_xw, b0=a_y0, bw=a_yw}
         {a0=b_x0, aw=b_xw, b0=b_y0, bw=b_yw})
     -- in [sol.a0, sol.aw, sol.b0, sol.bw]
-    let (u, v) = unwrap (0, 0) <| dio_combine_single_simple sol
+    -- let (u, v) = unwrap (0, 0) <| dio_combine_single_simple sol
     -- in [u, v]
-    in [sol.a0, sol.aw, sol.b0, sol.bw]
+    -- in [sol.a0, sol.aw, sol.b0, sol.bw]
+    in [sol.0, sol.1]
+    -- let sol = dunwrap (dio_combine
+    --     {a0=a_x0, aw=a_xw, b0=a_y0, bw=a_yw}
+    --     {a0=b_x0, aw=b_xw, b0=b_y0, bw=b_yw})
+    -- -- in [sol.a0, sol.aw, sol.b0, sol.bw]
+    -- let (u, v) = unwrap (0, 0) <| dio_combine_single_simple sol
+    -- -- in [u, v]
+    -- in [sol.a0, sol.aw, sol.b0, sol.bw]
 
 -- -- > doc_example -1 1 -1 -2 8 -4 3 -3
 
--- > doc_example 9 1 9 -2 18 -4 13 -3
+-- > doc_example -1 1 -1 -2 8 -4 3 -3
 
     -- match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
     -- case #none -> #none
@@ -170,48 +189,44 @@ def doc_example a_x0 a_xw a_y0 a_yw b_x0 b_xw b_y0 b_yw =
     -- #some {a0, aw, b0, bw}
     -- -- in #some a
 
-def dc_example a b c d e f =
-    let x = dunwrap (solve_dio a b e)
-    let y = dunwrap (solve_dio c d f)
-    -- let x = dio_pos x
-    -- let y = dio_pos y
+-- def dc_example a b c d e f =
+--     let x = dunwrap (solve_dio a b e)
+--     let y = dunwrap (solve_dio c d f)
+--     -- let x = dio_pos x
+--     -- let y = dio_pos y
 
-    let z = x
+--     let z = x
 
-    -- find weights that make a/b overlap
+--     -- find weights that make a/b overlap
 
-    let u = dunwrap <| dio_combine_single {a0 = x.a0, b0 = y.a0, aw = x.aw, bw = y.aw}
-    let v = dunwrap <| dio_combine_single {a0 = x.b0, b0 = y.b0, aw = x.bw, bw = y.bw}
-    let (g, h) = unwrap (0, 0) <| dio_combine_single_simple {a0 = u.a0, aw = u.aw, b0 = v.a0, bw = v.aw}
+--     let u = dunwrap <| dio_combine_single {a0 = x.a0, b0 = y.a0, aw = x.aw, bw = y.aw}
+--     let v = dunwrap <| dio_combine_single {a0 = x.b0, b0 = y.b0, aw = x.bw, bw = y.bw}
+--     let (g, h) = unwrap (0, 0) <| dio_combine_single_simple {a0 = u.a0, aw = u.aw, b0 = v.a0, bw = v.aw}
 
-    in [u.a0, u.aw, v.a0, v.aw, g, h]
-    -- in [z.a0, z.b0, z.aw, z.bw,
-    --     z.a0 * a + z.b0 * b, z.a0 * c + z.b0 * d]
-    -- let z: (dio_sol, dio_sol) = unwrap (ddio, ddio) <| dio_combine x y
-    -- in [
-    --     [z.0.a0, z.0.b0, z.0.aw, z.0.bw],
-    --     [z.1.a0, z.1.b0, z.1.aw, z.1.bw]
-    -- ]
+--     in [u.a0, u.aw, v.a0, v.aw, g, h]
+--     -- in [z.a0, z.b0, z.aw, z.bw,
+--     --     z.a0 * a + z.b0 * b, z.a0 * c + z.b0 * d]
+--     -- let z: (dio_sol, dio_sol) = unwrap (ddio, ddio) <| dio_combine x y
+--     -- in [
+--     --     [z.0.a0, z.0.b0, z.0.aw, z.0.bw],
+--     --     [z.1.a0, z.1.b0, z.1.aw, z.1.bw]
+--     -- ]
 
--- > dc_example 94 22 34 67 8400 5400
+-- -- > dc_example 94 22 34 67 8400 5400
 
--- > dc_example 94 22 34 67 100000000000008400 100000000000005400
+-- -- > dc_example 94 22 34 67 100000000000008400 100000000000005400
 
-def solve a b c d e f: option dio_sol =
+def solve a b c d e f: option (i64, i64) =
     match solve_dio a b e
     case #none -> #none
     case #some x ->
     match solve_dio c d f
     case #none -> #none
     case #some y ->
-    -- let z = dunwrap <| dio_combine x y
     match dio_combine x y
     case #none -> #none
-    case #some z ->
-    -- #some (dio_pos z)
-    let u = dio_pos z
-    in if u.a0 < 0 || u.b0 < 0 then #none
-    else #some u
+    case #some (xw, yw) ->
+    #some (x.a0 + x.aw * xw, x.b0 + x.bw * xw)
 
 
 def main [n] (text: [n]u8) =
@@ -242,11 +257,12 @@ def main [n] (text: [n]u8) =
             let null = [0, 0, 0, 0]
             in match solve a_x b_x a_y b_y t_x t_y
             case #none -> null
-            case #some x ->
-                null
+            case #some (x, y) ->
+                -- [x * 3 + y, x, y, 0]
+                [x, y, 0, 0]
         ))
-    in smallest
     -- in smallest
-    --     |> map (\x -> (x[0] ,x[1]))
-    --     |> map (\(a, b) -> a * 3 + b)
-    --     |> reduce (+) 0
+    in smallest
+        |> map (\x -> (x[0] ,x[1]))
+        |> map (\(a, b) -> a * 3 + b)
+        |> reduce (+) 0
