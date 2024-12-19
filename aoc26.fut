@@ -105,14 +105,26 @@ def dcss_example a0 aw b0 bw =
 def dio_combine (a: dio_sol) (b: dio_sol): option(dio_sol) =
     match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
     case #none -> #none
-    case #some {a0, b0, aw, bw} -> #some (
-        {
-            a0=a.a0 + a.aw*a0,
-            aw=a.aw*aw,
-            b0=a.b0 + a.bw*a0,
-            bw=a.bw*aw
-        }
-    )
+    case #some {a0=x_a0, b0=x_b0, aw=x_aw, bw=x_bw} ->
+    match dio_combine_single {a0 = a.b0, aw = a.bw, b0=b.b0, bw=b.bw}
+    case #none -> #none
+    case #some {a0=y_a0, b0=y_b0, aw=y_aw, bw=y_bw} ->
+    #some {a0=x_a0, aw=x_aw, b0=y_a0, bw=y_aw}
+    -- #some {a0=x_b0, aw=x_bw, b0=y_b0, bw=y_bw}
+
+
+def doc_example a_x0 a_xw a_y0 a_yw b_x0 b_xw b_y0 b_yw =
+    let sol = dunwrap (dio_combine
+        {a0=a_x0, aw=a_xw, b0=a_y0, bw=a_yw}
+        {a0=b_x0, aw=b_xw, b0=b_y0, bw=b_yw})
+    -- in [sol.a0, sol.aw, sol.b0, sol.bw]
+    let (u, v) = unwrap (0, 0) <| dio_combine_single_simple sol
+    -- in [u, v]
+    in [sol.a0, sol.aw, sol.b0, sol.bw]
+
+-- -- > doc_example -1 1 -1 -2 8 -4 3 -3
+
+-- > doc_example 9 1 9 -2 18 -4 13 -3
 
     -- match dio_combine_single {a0 = a.a0, aw = a.aw, b0=b.a0, bw=b.aw}
     -- case #none -> #none
@@ -163,19 +175,18 @@ def dc_example a b c d e f =
     let y = dunwrap (solve_dio c d f)
     -- let x = dio_pos x
     -- let y = dio_pos y
-    -- let z = dunwrap <| dio_combine x y
-    let z = dunwrap <| dio_combine x y
-    -- let z = x
-    -- let z = y
-    let z = dio_pos z
 
-    -- x: line of (a,b)'s which are correct in the first coordingate
-    -- y: line of (a,b)'s which are correct in the second coordinate
-    -- how to solve this? find a/b weights that make a match. this is it.
-    -- handle special cases later. !!
+    let z = x
 
-    in [z.a0, z.b0, z.aw, z.bw,
-        z.a0 * a + z.b0 * b, z.a0 * c + z.b0 * d]
+    -- find weights that make a/b overlap
+
+    let u = dunwrap <| dio_combine_single {a0 = x.a0, b0 = y.a0, aw = x.aw, bw = y.aw}
+    let v = dunwrap <| dio_combine_single {a0 = x.b0, b0 = y.b0, aw = x.bw, bw = y.bw}
+    let (g, h) = unwrap (0, 0) <| dio_combine_single_simple {a0 = u.a0, aw = u.aw, b0 = v.a0, bw = v.aw}
+
+    in [u.a0, u.aw, v.a0, v.aw, g, h]
+    -- in [z.a0, z.b0, z.aw, z.bw,
+    --     z.a0 * a + z.b0 * b, z.a0 * c + z.b0 * d]
     -- let z: (dio_sol, dio_sol) = unwrap (ddio, ddio) <| dio_combine x y
     -- in [
     --     [z.0.a0, z.0.b0, z.0.aw, z.0.bw],
@@ -226,35 +237,13 @@ def main [n] (text: [n]u8) =
         )
     let smallest = parsed
         |> map (\{a_x, a_y, b_x, b_y, t_x, t_y} -> (
+            if t_x / a_x == t_y / a_y then [t_x / a_x * 3, 0, 0, 0] else
+            if t_x / b_x == t_y / b_y then [t_x / b_x, 0, 0, 0] else
             let null = [0, 0, 0, 0]
             in match solve a_x b_x a_y b_y t_x t_y
             case #none -> null
             case #some x ->
-                -- let _ = assert (x.bw < 0) 0
-                let x = if x.bw < 0 then x else
-                    {a0 = x.a0, b0 = x.b0,
-                    aw = -x.aw, bw = -x.bw}
-                let left_bound = -(x.a0 / x.aw)
-                let right_bound = x.b0 / (-x.bw)
-                in if left_bound > right_bound then [0, 0, 0, 0]
-                else if left_bound == right_bound then [x.a0, x.b0, left_bound, right_bound]
-                else (
-                    -- equation:
-                    -- max (a0 + x * aw) * 3 + (a1 + x * bw)
-                    -- 3aw + bw
-                    --  [x.a0, x.b0, right_bound - left_bound,
-                    --  i64.bool (3 * x.aw + x.bw > 0)]
-                    if 3 * x.aw + x.bw > 0 then
-                        -- maximize x!
-                        [x.a0 + x.aw * right_bound,
-                        x.b0 + x.bw * right_bound,
-                        1, x.b0]
-                    else
-                        [x.a0 + x.aw * left_bound,
-                        x.b0 + x.bw * left_bound,
-                        0, x.b0]
-                )
-                -- else [x.a0, x.b0, left_bound, right_bound]
+                null
         ))
     in smallest
     -- in smallest
